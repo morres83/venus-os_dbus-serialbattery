@@ -158,30 +158,49 @@ class Battery(ABC):
         manages the charge voltage using linear interpolation by setting self.control_voltage
         :return: None
         """
+        voltageSum = 0
         foundHighCellVoltage = False
         if utils.CVCM_ENABLE:
-            currentBatteryVoltage = 0
             penaltySum = 0
             for i in range(self.cell_count):
-                cv = self.get_cell_voltage(i)
-                if cv:
-                    currentBatteryVoltage += cv
+                voltage = self.get_cell_voltage(i)
+                if voltage:
+                    voltageSum += voltage
 
-                    if cv >= utils.PENALTY_AT_CELL_VOLTAGE[0]:
+                    if voltage >= utils.PENALTY_AT_CELL_VOLTAGE[0]:
                         foundHighCellVoltage = True
                         penaltySum += utils.calcLinearRelationship(
-                            cv,
+                            voltage,
                             utils.PENALTY_AT_CELL_VOLTAGE,
                             utils.PENALTY_BATTERY_VOLTAGE,
                         )
-            self.voltage = currentBatteryVoltage  # for testing
+            self.voltage = voltageSum  # for testing - TO DO: still needed?
+
+            if self.max_voltage_start_time is None:
+                if (
+                    utils.MAX_CELL_VOLTAGE * self.cell_count <= voltageSum
+                    and self.allow_max_voltage
+                ):
+                    self.max_voltage_start_time = time()
+                elif (
+                    utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT > self.soc
+                    and not self.allow_max_voltage
+                ):
+                    self.allow_max_voltage = True
+            else:
+                tDiff = time() - self.max_voltage_start_time
+                if utils.MAX_VOLTAGE_TIME_SEC < tDiff:
+                    self.max_voltage_start_time = None
+                    self.allow_max_voltage = False
 
         if foundHighCellVoltage:
             # Keep penalty above min battery voltage
             self.control_voltage = max(
-                currentBatteryVoltage - penaltySum,
+                voltageSum - penaltySum,
                 utils.MIN_CELL_VOLTAGE * self.cell_count,
             )
+        elif self.allow_max_voltage:
+            self.control_voltage = utils.MAX_CELL_VOLTAGE * self.cell_count
         else:
             self.control_voltage = utils.FLOAT_CELL_VOLTAGE * self.cell_count
 
@@ -203,12 +222,11 @@ class Battery(ABC):
                     and self.allow_max_voltage
                 ):
                     self.max_voltage_start_time = time()
-                else:
-                    if (
-                        utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT > self.soc
-                        and not self.allow_max_voltage
-                    ):
-                        self.allow_max_voltage = True
+                elif (
+                    utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT > self.soc
+                    and not self.allow_max_voltage
+                ):
+                    self.allow_max_voltage = True
             else:
                 tDiff = time() - self.max_voltage_start_time
                 if utils.MAX_VOLTAGE_TIME_SEC < tDiff:
@@ -216,11 +234,7 @@ class Battery(ABC):
                     self.allow_max_voltage = False
 
         if self.allow_max_voltage:
-            # Keep penalty above min battery voltage
-            self.control_voltage = max(
-                utils.MAX_CELL_VOLTAGE * self.cell_count,
-                utils.MIN_CELL_VOLTAGE * self.cell_count,
-            )
+            self.control_voltage = utils.MAX_CELL_VOLTAGE * self.cell_count
         else:
             self.control_voltage = utils.FLOAT_CELL_VOLTAGE * self.cell_count
 
