@@ -51,6 +51,31 @@ MAX_BATTERY_DISCHARGE_CURRENT = float(
     config["DEFAULT"]["MAX_BATTERY_DISCHARGE_CURRENT"]
 )
 
+
+# -------- Charge Voltage limitation ---------
+# Charge voltage control management enable (True/False).
+CVCM_ENABLE = "True" == config["DEFAULT"]["CVCM_ENABLE"]
+
+# Example: 16cells * 3.45V/cell = 55,2V max charge voltage. 16*2.9V = 46,4V min discharge voltage
+# Cell min/max voltages - used with the cell count to get the min/max battery voltage
+MIN_CELL_VOLTAGE = float(config["DEFAULT"]["MIN_CELL_VOLTAGE"])
+MAX_CELL_VOLTAGE = float(config["DEFAULT"]["MAX_CELL_VOLTAGE"])
+FLOAT_CELL_VOLTAGE = float(config["DEFAULT"]["FLOAT_CELL_VOLTAGE"])
+
+# if the cell voltage reaches 3.55V, then reduce current battery-voltage by 0.01V
+# if the cell voltage goes over 3.6V, then the maximum penalty will not be exceeded
+# there will be a sum of all penalties for each cell, which exceeds the limits
+PENALTY_AT_CELL_VOLTAGE = _get_list_from_config(
+    "DEFAULT", "PENALTY_AT_CELL_VOLTAGE", lambda v: float(v)
+)
+PENALTY_BATTERY_VOLTAGE = _get_list_from_config(
+    "DEFAULT", "PENALTY_BATTERY_VOLTAGE", lambda v: float(v)
+)
+
+MAX_VOLTAGE_TIME_SEC = float(config["DEFAULT"]["MAX_VOLTAGE_TIME_SEC"])
+SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT = float(config["DEFAULT"]["SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT"])
+
+
 # -------- Cell Voltage limitation ---------
 # Description:
 # Maximal charge / discharge current will be in-/decreased depending on min- and max-cell-voltages
@@ -81,6 +106,7 @@ MAX_DISCHARGE_CURRENT_CV = _get_list_from_config(
     lambda v: MAX_BATTERY_DISCHARGE_CURRENT * float(v),
 )
 
+
 # -------- Temperature limitation ---------
 # Description:
 # Maximal charge / discharge current will be in-/decreased depending on temperature
@@ -110,31 +136,12 @@ MAX_DISCHARGE_CURRENT_T = _get_list_from_config(
     lambda v: MAX_BATTERY_DISCHARGE_CURRENT * float(v),
 )
 
-# if the cell voltage reaches 3.55V, then reduce current battery-voltage by 0.01V
-# if the cell voltage goes over 3.6V, then the maximum penalty will not be exceeded
-# there will be a sum of all penalties for each cell, which exceeds the limits
-PENALTY_AT_CELL_VOLTAGE = _get_list_from_config(
-    "DEFAULT", "PENALTY_AT_CELL_VOLTAGE", lambda v: float(v)
-)
-PENALTY_BATTERY_VOLTAGE = _get_list_from_config(
-    "DEFAULT", "PENALTY_BATTERY_VOLTAGE", lambda v: float(v)
-)
-
 
 # -------- SOC limitation ---------
 # Description:
 # Maximal charge / discharge current will be increased / decreased depending on State of Charge, see CC_SOC_LIMIT1 etc.
 # The State of Charge (SoC) charge / discharge current will be in-/decreased depending on SOC.
-# Example: 16cells * 3.45V/cell = 55,2V max charge voltage. 16*2.9V = 46,4V min discharge voltage
-# Cell min/max voltages - used with the cell count to get the min/max battery voltage
-MIN_CELL_VOLTAGE = float(config["DEFAULT"]["MIN_CELL_VOLTAGE"])
-MAX_CELL_VOLTAGE = float(config["DEFAULT"]["MAX_CELL_VOLTAGE"])
-FLOAT_CELL_VOLTAGE = float(config["DEFAULT"]["FLOAT_CELL_VOLTAGE"])
-MAX_VOLTAGE_TIME_SEC = float(config["DEFAULT"]["MAX_VOLTAGE_TIME_SEC"])
-SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT = float(
-    config["DEFAULT"]["SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT"]
-)
-
+# Example: The SoC limit will be monitored to control the currents.
 # Charge current control management reffering to SoC enable (True/False).
 CCCM_SOC_ENABLE = "True" == config["DEFAULT"]["CCCM_SOC_ENABLE"]
 # Discharge current control management reffering to SoC enable (True/False).
@@ -172,8 +179,6 @@ DC_CURRENT_LIMIT3 = MAX_BATTERY_DISCHARGE_CURRENT * float(
     config["DEFAULT"]["DC_CURRENT_LIMIT3_FRACTION"]
 )
 
-# Charge voltage control management enable (True/False).
-CVCM_ENABLE = "True" == config["DEFAULT"]["CVCM_ENABLE"]
 
 # Simulate Midpoint graph (True/False).
 MIDPOINT_ENABLE = "True" == config["DEFAULT"]["MIDPOINT_ENABLE"]
@@ -188,6 +193,8 @@ BATTERY_CAPACITY = float(config["DEFAULT"]["BATTERY_CAPACITY"])
 # Invert Battery Current. Default non-inverted. Set to -1 to invert
 INVERT_CURRENT_MEASUREMENT = int(config["DEFAULT"]["INVERT_CURRENT_MEASUREMENT"])
 
+
+# -------- Time-To-Soc ---------
 # TIME TO SOC settings [Valid values 0-100, but I don't recommend more that 20 intervals]
 # Set of SoC percentages to report on dbus. The more you specify the more it will impact system performance.
 # TIME_TO_SOC_POINTS = 100, 95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0
@@ -196,13 +203,12 @@ INVERT_CURRENT_MEASUREMENT = int(config["DEFAULT"]["INVERT_CURRENT_MEASUREMENT"]
 # No data set to disable
 TIME_TO_SOC_POINTS = _get_list_from_config("DEFAULT", "TIME_TO_SOC_POINTS", lambda v: int(v))
 # Specify TimeToSoc value type [Valid values 1, 2, 3]
-# TODO: for what is this needed, if it's not displayed anywhere?
 # 1 Seconds
 # 2 Time string <days>d <hours>h <minutes>m <seconds>s
 # 3 Both seconds and time string "<seconds> [<days>d <hours>h <minutes>m <seconds>s]"
 TIME_TO_SOC_VALUE_TYPE = int(config["DEFAULT"]["TIME_TO_SOC_VALUE_TYPE"])
-# Specify how often, in seconds, the TimeToSoc should be recalculated
-# Limit to minimum 5 seconds to prevent CPU overload
+# Specify in seconds how often the TimeToSoc should be recalculated
+# Minimum are 5 seconds to prevent CPU overload
 TIME_TO_SOC_RECALCULATE_EVERY = int(config["DEFAULT"]["TIME_TO_SOC_RECALCULATE_EVERY"]) if int(config["DEFAULT"]["TIME_TO_SOC_RECALCULATE_EVERY"]) > 5 else 5
 # Include TimeToSoC points when moving away from the SoC point [Valid values True,False]
 # These will be as negative time. Disabling this improves performance slightly
