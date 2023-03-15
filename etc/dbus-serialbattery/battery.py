@@ -158,23 +158,27 @@ class Battery(ABC):
         manages the charge voltage using linear interpolation by setting self.control_voltage
         :return: None
         """
-        voltageSum = 0
         foundHighCellVoltage = False
+        voltageSum = 0
+        penaltySum = 0
         if utils.CVCM_ENABLE:
-            penaltySum = 0
+            # calculate battery sum
             for i in range(self.cell_count):
                 voltage = self.get_cell_voltage(i)
                 if voltage:
                     voltageSum += voltage
 
+                    # calculate penalty sum to prevent single cell overcharge
                     if voltage >= utils.PENALTY_AT_CELL_VOLTAGE[0]:
+                        # foundHighCellVoltage: reset to False is not needed, since it is recalculated every second
                         foundHighCellVoltage = True
                         penaltySum += utils.calcLinearRelationship(
                             voltage,
                             utils.PENALTY_AT_CELL_VOLTAGE,
                             utils.PENALTY_BATTERY_VOLTAGE,
                         )
-            self.voltage = voltageSum  # for testing - TO DO: still needed?
+
+            #self.voltage = voltageSum  # for testing - TO DO: still needed?
 
             if self.max_voltage_start_time is None:
                 if (
@@ -190,18 +194,32 @@ class Battery(ABC):
             else:
                 tDiff = time() - self.max_voltage_start_time
                 if utils.MAX_VOLTAGE_TIME_SEC < tDiff:
-                    self.max_voltage_start_time = None
                     self.allow_max_voltage = False
+                    self.max_voltage_start_time = None
 
-        if foundHighCellVoltage:
+#        logger.info(
+#            'allow_max_voltage: ' + str(self.allow_max_voltage) +
+#            ' | foundHighCellVoltage: ' + str(foundHighCellVoltage) +
+#            ' | max_voltage_start_time: ' + str(self.max_voltage_start_time) +
+#            ' | tDiff: ' + ( str(int(time() - self.max_voltage_start_time)) if self.max_voltage_start_time is not None else str(None) ) +
+#            ' | voltageSum: ' + str(voltageSum)
+#        )
+
+        if (
+            foundHighCellVoltage
+            and self.allow_max_voltage
+        ):
+#            logger.info("foundHighCellVoltage")
             # Keep penalty above min battery voltage
             self.control_voltage = max(
                 voltageSum - penaltySum,
                 utils.MIN_CELL_VOLTAGE * self.cell_count,
             )
         elif self.allow_max_voltage:
+#            logger.info("MAX_CELL_VOLTAGE")
             self.control_voltage = utils.MAX_CELL_VOLTAGE * self.cell_count
         else:
+#            logger.info("FLOAT_CELL_VOLTAGE")
             self.control_voltage = utils.FLOAT_CELL_VOLTAGE * self.cell_count
 
     def manage_charge_voltage_step(self) -> None:
@@ -211,31 +229,95 @@ class Battery(ABC):
         """
         voltageSum = 0
         if utils.CVCM_ENABLE:
+
+            # calculate battery sum
             for i in range(self.cell_count):
                 voltage = self.get_cell_voltage(i)
                 if voltage:
                     voltageSum += voltage
 
+            # max cell voltage: 3.45 * 16 = 55.2
+            # sum 1: 3.2 * 16 = 51.2  | max_voltage_start_time: None | allow_max_voltage: True
+            # sum 2: 3.65 * 16 = 58.4 | max_voltage_start_time: None | allow_max_voltage: True
+            # sum 3: 3.65 * 16 = 58.4 | max_voltage_start_time: 250  | allow_max_voltage: True
+            # sum 4: 3.65 * 16 = 58.4 | max_voltage_start_time: 301  | allow_max_voltage: True
+            # sum 5: 3.55 * 16 = 56.8 | max_voltage_start_time: None | allow_max_voltage: False
+            # sum 6: 3.30 * 16 = 52.8 | max_voltage_start_time: None | allow_max_voltage: False
             if self.max_voltage_start_time is None:
+                # example 1
+                # example 2
+                # example 5
+                # example 6
+
+                # check if max voltage is reached and start timer to keep max voltage
                 if (
+                    # example 1: 55.2 <= 51.2 --> FALSE
+                    # example 2: 55.2 <= 58.4 --> TRUE
+                    # example 5: 55.2 <= 56.8 --> TRUE
+                    # example 6: 55.2 <= 52.8 --> FALSE
                     utils.MAX_CELL_VOLTAGE * self.cell_count <= voltageSum
+                    # self.allow_max_voltage == True
+                    # example 1: True == True  --> TRUE
+                    # example 2: True == True  --> TRUE
+                    # example 5: False == True --> FALSE
+                    # example 6: False == True --> FALSE
                     and self.allow_max_voltage
                 ):
+                    # example 2
                     self.max_voltage_start_time = time()
+
+                # check if reset soc is greater than battery soc
+                # this prevents flapping between max and float voltage
                 elif (
+                    # example 1: 90 > 40 --> TRUE
+                    # example 5: 90 > 99 --> FALSE
+                    # example 5: 90 > 80 --> TRUE
                     utils.SOC_LEVEL_TO_RESET_VOLTAGE_LIMIT > self.soc
+                    # and self.allow_max_voltage == False
+                    # example 1: True == False --> FALSE
+                    # example 5: False = False --> TRUE
+                    # example 6: False = False --> TRUE
                     and not self.allow_max_voltage
                 ):
+                    # example 1
+                    # example 6
                     self.allow_max_voltage = True
+
+                # do nothing
+                else:
+                    # example 5
+                    pass
+
+            # timer started
             else:
+                # example 3: 3.65 * 16 = 58.4 - max_voltage_start_time: 250
+                # example 4: 3.65 * 16 = 58.4 - max_voltage_start_time: 301
                 tDiff = time() - self.max_voltage_start_time
                 if utils.MAX_VOLTAGE_TIME_SEC < tDiff:
-                    self.max_voltage_start_time = None
+                    # example 4
                     self.allow_max_voltage = False
+                    self.max_voltage_start_time = None
+
+                else:
+                    # example 3
+                    pass
+
+#        logger.info(
+#            'allow_max_voltage: ' + str(self.allow_max_voltage) +
+#            ' | max_voltage_start_time: ' + str(self.max_voltage_start_time) +
+#            ' | tDiff: ' + ( str(int(time() - self.max_voltage_start_time)) if self.max_voltage_start_time is not None else str(None) ) +
+#            ' | voltageSum: ' + str(voltageSum)
+#        )
 
         if self.allow_max_voltage:
+            # example 1
+            # example 2
+            # example 3
+            # example 6 --> example 1
             self.control_voltage = utils.MAX_CELL_VOLTAGE * self.cell_count
         else:
+            # example 4
+            # example 5
             self.control_voltage = utils.FLOAT_CELL_VOLTAGE * self.cell_count
 
     def manage_charge_current(self) -> None:
@@ -635,22 +717,17 @@ class Battery(ABC):
 
     def log_settings(self) -> None:
 
-        logger.info(f"Battery {self.type} connected to dbus from {self.port}")
-        logger.info("=== Settings ===")
         cell_counter = len(self.cells)
-        logger.info(
-            f"> Connection voltage {self.voltage}V | current {self.current}A | SOC {self.soc}%"
-        )
-        logger.info(f"> Cell count {self.cell_count} | cells populated {cell_counter}")
-        logger.info(
-            f"> CCCM SOC {utils.CCCM_SOC_ENABLE} | DCCM SOC {utils.DCCM_SOC_ENABLE}"
-        )
-        logger.info(
-            f"> CCCM CV {utils.CCCM_CV_ENABLE} | DCCM CV {utils.DCCM_CV_ENABLE}"
-        )
-        logger.info(f"> CCCM T {utils.CCCM_T_ENABLE} | DCCM T {utils.DCCM_T_ENABLE}")
-        logger.info(
-            f"> MIN_CELL_VOLTAGE {utils.MIN_CELL_VOLTAGE}V | MAX_CELL_VOLTAGE {utils.MAX_CELL_VOLTAGE}V"
-        )
+        logger.info(f"Battery {self.type} connected to dbus from {self.port}")
+        logger.info( "========== Settings ==========")
+        logger.info(f"> Connection voltage: {self.voltage}V | Current: {self.current}A | SoC: {self.soc}%")
+        logger.info(f"> Cell count: {self.cell_count} | Cells populated: {cell_counter}")
+        logger.info(f"> LINEAR LIMITATION ENABLE: {utils.LINEAR_LIMITATION_ENABLE}")
+        logger.info(f"> MAX BATTERY CHARGE CURRENT: {utils.MAX_BATTERY_CHARGE_CURRENT}V | MAX BATTERY DISCHARGE CURRENT: {utils.MAX_BATTERY_DISCHARGE_CURRENT}V")
+        logger.info(f"> CVCM:     {utils.CVCM_ENABLE}")
+        logger.info(f"> MIN CELL VOLTAGE: {utils.MIN_CELL_VOLTAGE}V | MAX CELL VOLTAGE: {utils.MAX_CELL_VOLTAGE}V")
+        logger.info(f"> CCCM CV:  {str(utils.CCCM_CV_ENABLE).ljust(5)} | DCCM CV:  {utils.DCCM_CV_ENABLE}")
+        logger.info(f"> CCCM T:   {str(utils.CCCM_T_ENABLE).ljust(5)} | DCCM T:   {utils.DCCM_T_ENABLE}")
+        logger.info(f"> CCCM SOC: {str(utils.CCCM_SOC_ENABLE).ljust(5)} | DCCM SOC: {utils.DCCM_SOC_ENABLE}")
 
         return
