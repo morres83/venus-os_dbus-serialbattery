@@ -345,6 +345,12 @@ MbPage {
             }
         }
 
+        MbItemValue {
+            description: qsTr("Charge mode")
+            item.bind: service.path("/ChargeMode")
+            show: item.valid
+        }
+
         MbSubMenu {
             property VBusItem cvl: VBusItem { bind: service.path("/Info/MaxChargeVoltage") }
             property VBusItem ccl: VBusItem { bind: service.path("/Info/MaxChargeCurrent") }

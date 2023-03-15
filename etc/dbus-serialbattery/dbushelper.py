@@ -265,6 +265,9 @@ class DbusHelper:
         self._dbusservice.add_path("/Alarms/HighTemperature", None, writeable=True)
         self._dbusservice.add_path("/Alarms/LowTemperature", None, writeable=True)
 
+        # for troubleshooting only
+        self._dbusservice.add_path("/ChargeMode", None, writeable=True)
+
         # cell voltages
         if BATTERY_CELL_DATA_FORMAT > 0:
             for i in range(1, self.battery.cell_count + 1):
@@ -427,6 +430,9 @@ class DbusHelper:
         self._dbusservice["/Alarms/LowChargeTemperature"] = self.battery.protection.temp_low_charge
         self._dbusservice["/Alarms/HighTemperature"] = self.battery.protection.temp_high_discharge
         self._dbusservice["/Alarms/LowTemperature"] = self.battery.protection.temp_low_discharge
+
+        # for troubleshooting only
+        self._dbusservice["/ChargeMode"] = self.battery.charge_mode
 
         # cell voltages
         if BATTERY_CELL_DATA_FORMAT > 0:
