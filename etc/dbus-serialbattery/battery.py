@@ -162,6 +162,7 @@ class Battery(ABC):
         foundHighCellVoltage = False
         voltageSum = 0
         penaltySum = 0
+        tDiff = 0
         if utils.CVCM_ENABLE:
             # calculate battery sum
             for i in range(self.cell_count):
@@ -179,6 +180,7 @@ class Battery(ABC):
                             utils.PENALTY_BATTERY_VOLTAGE,
                         )
 
+            voltageSum = round(voltageSum, 3)
             #self.voltage = voltageSum  # for testing - TO DO: still needed?
 
             if self.max_voltage_start_time is None:
@@ -198,33 +200,32 @@ class Battery(ABC):
                     self.allow_max_voltage = False
                     self.max_voltage_start_time = None
 
-#        logger.info(
-#            'allow_max_voltage: ' + str(self.allow_max_voltage) +
-#            ' | foundHighCellVoltage: ' + str(foundHighCellVoltage) +
-#            ' | max_voltage_start_time: ' + str(self.max_voltage_start_time) +
-#            ' | tDiff: ' + ( str(int(time() - self.max_voltage_start_time)) if self.max_voltage_start_time is not None else str(None) ) +
-#            ' | voltageSum: ' + str(voltageSum)
-#        )
-
+        # INFO: battery will only switch to Absorption if all cells are balanced.reach MAC_CELL_VOLTAGE * cell count if they are all balanced.
         if (
             foundHighCellVoltage
             and self.allow_max_voltage
         ):
-#            logger.info("foundHighCellVoltage")
             # Keep penalty above min battery voltage
-            self.control_voltage = max(
+            self.control_voltage = round( max(
                 voltageSum - penaltySum,
                 utils.MIN_CELL_VOLTAGE * self.cell_count,
-            )
-            self.charge_mode = 'Bulk dynamic (linear mode)' if self.max_voltage_start_time is None else 'Absorption dynamic (linear mode)'
+            ), 3)
+            self.charge_mode = 'Bulk cell high (linear)' if self.max_voltage_start_time is None else 'Absorption cell high (linear) - Float in ' + str(int(utils.MAX_VOLTAGE_TIME_SEC - tDiff)) + 's'
         elif self.allow_max_voltage:
-#            logger.info("MAX_CELL_VOLTAGE")
-            self.control_voltage = utils.MAX_CELL_VOLTAGE * self.cell_count
-            self.charge_mode = 'Bulk (linear mode)' if self.max_voltage_start_time is None else 'Absorption (linear mode)'
+            self.control_voltage = round( (utils.MAX_CELL_VOLTAGE * self.cell_count), 3)
+            self.charge_mode = 'Bulk (linear)' if self.max_voltage_start_time is None else 'Absorption (linear) - Float in ' + str(int(utils.MAX_VOLTAGE_TIME_SEC - tDiff)) + 's'
         else:
-#            logger.info("FLOAT_CELL_VOLTAGE")
-            self.control_voltage = utils.FLOAT_CELL_VOLTAGE * self.cell_count
-            self.charge_mode = 'Float (linear mode)'
+            self.control_voltage = round( (utils.FLOAT_CELL_VOLTAGE * self.cell_count), 3)
+            self.charge_mode = 'Float (linear)'
+
+#        logger.info(
+#            'allow_max_voltage: ' + str(self.allow_max_voltage) +
+#            ' | foundHighCellVoltage: ' + str(foundHighCellVoltage) +
+#            ' | max_voltage_start_time: ' + str(self.max_voltage_start_time) +
+#            ' | control_voltage: ' + str(self.control_voltage) +
+#            ' | tDiff: ' + ( str(int(time() - self.max_voltage_start_time)) if self.max_voltage_start_time is not None else str(None) ) +
+#            ' | voltageSum: ' + str(voltageSum)
+#        )
 
     def manage_charge_voltage_step(self) -> None:
         """
@@ -232,6 +233,7 @@ class Battery(ABC):
         :return: None
         """
         voltageSum = 0
+        tDiff = 0
         if utils.CVCM_ENABLE:
 
             # calculate battery sum
@@ -319,12 +321,12 @@ class Battery(ABC):
             # example 3
             # example 6 --> example 1
             self.control_voltage = utils.MAX_CELL_VOLTAGE * self.cell_count
-            self.charge_mode = 'Bulk (step mode)' if self.max_voltage_start_time is None else 'Absorption (step mode)'
+            self.charge_mode = 'Bulk (step)' if self.max_voltage_start_time is None else 'Absorption (step) - Float in ' + str(int(utils.MAX_VOLTAGE_TIME_SEC - tDiff)) + 's'
         else:
             # example 4
             # example 5
             self.control_voltage = utils.FLOAT_CELL_VOLTAGE * self.cell_count
-            self.charge_mode = 'Float (step mode)'
+            self.charge_mode = 'Float (step)'
 
     def manage_charge_current(self) -> None:
         # Manage Charge Current Limitations
@@ -336,7 +338,7 @@ class Battery(ABC):
         if utils.CCCM_T_ENABLE:
             charge_limits.append(self.calcMaxChargeCurrentReferringToTemperature())
 
-        self.control_charge_current = min(charge_limits)
+        self.control_charge_current = round( min(charge_limits), 3)
 
         if self.control_charge_current == 0:
             self.control_allow_charge = False
@@ -356,7 +358,7 @@ class Battery(ABC):
                 self.calcMaxDischargeCurrentReferringToTemperature()
             )
 
-        self.control_discharge_current = min(discharge_limits)
+        self.control_discharge_current = round( min(discharge_limits), 3)
 
         if self.control_discharge_current == 0:
             self.control_allow_discharge = False
