@@ -82,6 +82,7 @@ class Battery(ABC):
         self.control_charging = None
         self.control_voltage = None
         self.allow_max_voltage = True
+        self.control_voltage_last_set = 0
         self.charge_mode = None
         self.max_voltage_start_time = None
         self.control_current = None
@@ -205,15 +206,21 @@ class Battery(ABC):
             foundHighCellVoltage
             and self.allow_max_voltage
         ):
-            # Keep penalty above min battery voltage
-            self.control_voltage = round( max(
-                voltageSum - penaltySum,
-                utils.MIN_CELL_VOLTAGE * self.cell_count,
-            ), 3)
+            # set CVL only once every PENALTY_RECALCULATE_EVERY seconds
+            control_voltage_time = int(time() / utils.PENALTY_RECALCULATE_EVERY)
+            if control_voltage_time != self.control_voltage_last_set:
+                # Keep penalty above min battery voltage
+                self.control_voltage = round( max(
+                    voltageSum - penaltySum,
+                    utils.MIN_CELL_VOLTAGE * self.cell_count,
+                ), 3)
+                self.control_voltage_last_set = control_voltage_time
             self.charge_mode = 'Bulk cell high (linear)' if self.max_voltage_start_time is None else 'Absorption cell high (linear) - Float in ' + str(int(utils.MAX_VOLTAGE_TIME_SEC - tDiff)) + 's'
+
         elif self.allow_max_voltage:
             self.control_voltage = round( (utils.MAX_CELL_VOLTAGE * self.cell_count), 3)
             self.charge_mode = 'Bulk (linear)' if self.max_voltage_start_time is None else 'Absorption (linear) - Float in ' + str(int(utils.MAX_VOLTAGE_TIME_SEC - tDiff)) + 's'
+
         else:
             self.control_voltage = round( (utils.FLOAT_CELL_VOLTAGE * self.cell_count), 3)
             self.charge_mode = 'Float (linear)'

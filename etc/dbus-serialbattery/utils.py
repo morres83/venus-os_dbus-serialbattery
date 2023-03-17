@@ -36,7 +36,7 @@ def _get_list_from_config(
 
 # Constants - Need to dynamically get them in future
 DRIVER_VERSION = "1.0"
-DRIVER_SUBVERSION = ".0-issue-421-20230316-1"
+DRIVER_SUBVERSION = ".0-issue-421-20230317-1"
 zero_char = chr(48)
 degree_sign = "\N{DEGREE SIGN}"
 
@@ -87,6 +87,8 @@ PENALTY_BATTERY_VOLTAGE = _get_list_from_config(
     "PENALTY_BATTERY_VOLTAGE",
     lambda v: float(v)
 )
+# Specify in seconds how often the penalty should be recalculated
+PENALTY_RECALCULATE_EVERY = int(config["DEFAULT"]["PENALTY_RECALCULATE_EVERY"])
 
 # -- CVL Reset based on SoC option
 # Reset max voltage after
