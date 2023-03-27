@@ -265,6 +265,8 @@ class DbusHelper:
         self._dbusservice.add_path("/Alarms/HighTemperature", None, writeable=True)
         self._dbusservice.add_path("/Alarms/LowTemperature", None, writeable=True)
 
+        self._dbusservice.add_path("/BMSVersion", None, writeable=True)
+
         # for troubleshooting only
         self._dbusservice.add_path("/ChargeMode", None, writeable=True)
 
@@ -430,6 +432,8 @@ class DbusHelper:
         self._dbusservice["/Alarms/LowChargeTemperature"] = self.battery.protection.temp_low_charge
         self._dbusservice["/Alarms/HighTemperature"] = self.battery.protection.temp_high_discharge
         self._dbusservice["/Alarms/LowTemperature"] = self.battery.protection.temp_low_discharge
+
+        self._dbusservice["/BMSVersion"] = self.battery.version
 
         # for troubleshooting only
         self._dbusservice["/ChargeMode"] = self.battery.charge_mode

@@ -3,7 +3,7 @@ from battery import Battery, Cell
 from utils import is_bit_set, read_serial_data, logger
 import utils
 from struct import unpack_from
-
+import binascii
 
 class Jkbms(Battery):
     def __init__(self, port, baud, address):
@@ -67,7 +67,7 @@ class Jkbms(Battery):
         cellbyte_count = unpack_from(
             ">B", self.get_data(status_data, b"\x79", offset, 1)
         )[0]
-
+        # logger.info(binascii.hexlify(status_data))
         offset = cellbyte_count + 30
         self.cell_count = unpack_from(
             ">H", self.get_data(status_data, b"\x8A", offset, 2)
@@ -137,6 +137,7 @@ class Jkbms(Battery):
         self.production = unpack_from(
             ">8s", self.get_data(status_data, b"\xB4", offset, 8)
         )[0].decode()
+        #logger.info("Production: " + bytes.hex(binascii.hexlify(self.get_data(status_data, b"\xB4", offset, 8))))
         offset = cellbyte_count + 174
         self.version = unpack_from(
             ">15s", self.get_data(status_data, b"\xB7", offset, 15)
